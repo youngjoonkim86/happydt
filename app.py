@@ -124,20 +124,36 @@ prompt = """
 
     
 
-if st.button("🎲 번호 추천받기"):
+# 세션 상태 초기화
+if "loading" not in st.session_state:
+    st.session_state.loading = False
+if "result" not in st.session_state:
+    st.session_state.result = ""
+
+# 버튼 클릭 → 로딩 상태로 전환
+if st.button("🎲 번호 추천받기", disabled=st.session_state.loading):
+    st.session_state.loading = True  # 버튼 비활성화 (딤드 처리)
+
+# 로딩 중이면 LLM 호출 → 완료되면 결과 저장
+if st.session_state.loading:
     with st.spinner("AI가 분석 중입니다..."):
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",  # 또는 llama3-8b-8192 등
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.7,
-            max_tokens=6000,
-            stream=False,
-        )
-        result = completion.choices[0].message.content
-        st.success("추천이 완료되었습니다!")
-        st.markdown(f"### 🧠 GPT 추천 번호\n{result}")
+        try:
+            completion = client.chat.completions.create(
+                model="llama3-8b-8192",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=6000,
+                stream=False,
+            )
+            st.session_state.result = completion.choices[0].message.content
+            st.success("추천이 완료되었습니다!")
+        except Exception as e:
+            st.session_state.result = f"🚨 오류 발생: {str(e)}"
+        
+        # 로딩 완료 후 버튼 다시 활성화
+        st.session_state.loading = False
+
+# 결과 출력
+if st.session_state.result:
+    st.markdown("### 🧠 GPT 추천 번호")
+    st.code(st.session_state.result, language="text")
